@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using System.Threading;
 using System.Text;
 using System.Collections.Generic;
+using System.Linq;
 using Microsoft.Azure.Devices;
 
 namespace read_d2c_messages
@@ -29,19 +30,42 @@ namespace read_d2c_messages
             RecieveMessages();
             
             _serviceClient = ServiceClient.CreateFromConnectionString(_hubConnectionString);
+            ReceiveFeedbackAsync();
             while (true)
             {
                 Console.WriteLine("Press any key to send a C2D message.");
                 Console.ReadLine();
-                await SendCloudToDeviceMessageAsync();
+                SendCloudToDeviceMessageAsync();
             }
         }
         
-        private async static Task SendCloudToDeviceMessageAsync()
+        private static async Task SendCloudToDeviceMessageAsync()
         {
             var commandMessage = new
                 Message(Encoding.ASCII.GetBytes("Stop harrassing me you little, s**t!"));
+            
+            // demand feedback on the delivery of the message 
+            commandMessage.Ack = DeliveryAcknowledgement.Full;
             await _serviceClient.SendAsync(_deviceId, commandMessage);
+        }
+        
+        private static async void ReceiveFeedbackAsync()
+        {
+            var feedbackReceiver = _serviceClient.GetFeedbackReceiver();
+
+            Console.WriteLine("\nReceiving c2d feedback from service");
+            while (true)
+            {
+                var feedbackBatch = await feedbackReceiver.ReceiveAsync();
+                if (feedbackBatch == null) continue;
+
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine("Received feedback: {0}",
+                    string.Join(", ", feedbackBatch.Records.Select(f => f.StatusCode)));
+                Console.ResetColor();
+
+                await feedbackReceiver.CompleteAsync(feedbackBatch);
+            }
         }
 
         private static async Task RecieveMessages()
@@ -71,7 +95,7 @@ namespace read_d2c_messages
             // Wait for all the PartitionReceivers to finsih.
             Task.WaitAll(tasks.ToArray());
         }
-        
+
         // Asynchronously create a PartitionReceiver for a partition and then start 
         // reading any messages sent from the simulated client.
         private static async Task ReceiveMessagesFromDeviceAsync(string partition, CancellationToken ct)
