@@ -8,14 +8,23 @@ using System.ComponentModel.Design;
 using System.Linq;
 using Microsoft.Azure.Devices;
 using Microsoft.IdentityModel.Tokens;
+using System.Reflection.Metadata.Ecma335;
+using Microsoft.Azure.Devices.Shared;
 using Newtonsoft.Json;
+
 
 namespace read_d2c_messages
 {
     class ReadDeviceToCloudMessages
     {
-        // needed for listening to events from IoTHub
-        private readonly static string s_eventHubsCompatibleEndpoint = "sb://ihsuprodamres038dednamespace.servicebus.windows.net/";
+        // needed list for creating all rooms/devices
+        private static List <Twin> roomDevices;
+        private static RegistryManager _registryManager;
+
+        // needed for listening to events from IoTHubdotn
+        private readonly static string s_eventHubsCompatibleEndpoint =
+            "sb://ihsuprodamres038dednamespace.servicebus.windows.net/";
+
         private readonly static string s_eventHubsCompatiblePath = "iothub-ehub-sweetiothu-1987978-2281450f73";
         private readonly static string s_iotHubSasKey = "zVE2nXhSCeFQMd2bP37Za74/HkrI6NCTrCSD7a00d+0=";
         private readonly static string s_iotHubSasKeyName = "service";
@@ -24,16 +33,29 @@ namespace read_d2c_messages
         // needed for sending messages to IoTHub
         private static ServiceClient _serviceClient;
         private static string _deviceId = "MyDevice";
+
         private static string _hubConnectionString =
             "HostName=SweetIoTHub.azure-devices.net;SharedAccessKeyName=service;SharedAccessKey=zVE2nXhSCeFQMd2bP37Za74/HkrI6NCTrCSD7a00d+0=";
 
 
         private static async Task Main(string[] args)
         {
-            RecieveMessages();
-            
+            _registryManager =  RegistryManager.CreateFromConnectionString(_hubConnectionString);
             _serviceClient = ServiceClient.CreateFromConnectionString(_hubConnectionString);
             ReceiveFeedbackAsync();
+            
+
+            await SetUp();
+            
+            foreach (var device in roomDevices)
+            {
+                Console.WriteLine("Gerät: ");
+                Console.WriteLine(device.DeviceId);
+            }
+
+
+            RecieveMessages();
+
             while (true)
             {
                 Console.WriteLine("Type 'm' for Message. Type 'd' for direct method call.");
@@ -50,7 +72,26 @@ namespace read_d2c_messages
             }
         }
         
-        private static async Task SendCloudToDeviceMessageAsync()
+
+        private async static Task SetUp()
+        {    
+            var query = _registryManager.CreateQuery("SELECT * FROM devices");
+            Console.WriteLine("Devices: ");
+            roomDevices = new List<Twin>();
+            while (query.HasMoreResults)
+            {
+                
+                var devices = await query.GetNextAsTwinAsync();
+                foreach (var twin in devices)
+                {
+                    roomDevices.Add(twin);
+                }
+
+            }
+        }
+
+
+        private async static Task SendCloudToDeviceMessageAsync()
         {
             var commandMessage = new
                 Message(Encoding.ASCII.GetBytes("Stop harrassing me you little, s**t!"));
@@ -119,7 +160,7 @@ namespace read_d2c_messages
             var connectionString = new EventHubsConnectionStringBuilder(new Uri(s_eventHubsCompatibleEndpoint),
                 s_eventHubsCompatiblePath, s_iotHubSasKeyName, s_iotHubSasKey);
             s_eventHubClient = EventHubClient.CreateFromConnectionString(connectionString.ToString());
-            
+
             var runtimeInfo = await s_eventHubClient.GetRuntimeInformationAsync();
             var d2cPartitions = runtimeInfo.PartitionIds;
 
@@ -149,7 +190,8 @@ namespace read_d2c_messages
             // Create the receiver using the default consumer group.
             // For the purposes of this sample, read only messages sent since 
             // the time the receiver is created. Typically, you don't want to skip any messages.
-            var eventHubReceiver = s_eventHubClient.CreateReceiver("$Default", partition, EventPosition.FromEnqueuedTime(DateTime.Now));
+            var eventHubReceiver =
+                s_eventHubClient.CreateReceiver("$Default", partition, EventPosition.FromEnqueuedTime(DateTime.Now));
             while (true)
             {
                 if (ct.IsCancellationRequested) break;
@@ -171,6 +213,7 @@ namespace read_d2c_messages
                     {
                         Console.WriteLine("  {0}: {1}", prop.Key, prop.Value);
                     }
+
                     Console.WriteLine("System properties (set by IoT Hub):");
                     foreach (var prop in eventData.SystemProperties)
                     {
