@@ -15,7 +15,7 @@ namespace read_d2c_messages
     class ReadDeviceToCloudMessages
     {
         // needed list for creating all rooms/devices
-        private static List <Twin> _roomDevices;
+        private static List <Twin> _roomDeviceTwins;
         private static RegistryManager _registryManager;
 
         // needed for listening to events from IoTHubdotn
@@ -44,7 +44,7 @@ namespace read_d2c_messages
 
             await SetUp();
             
-            foreach (var device in _roomDevices)
+            foreach (var device in _roomDeviceTwins)
             {
                 Console.WriteLine("Gerät: ");
                 Console.WriteLine(device.DeviceId);
@@ -74,14 +74,14 @@ namespace read_d2c_messages
         {    
             var query = _registryManager.CreateQuery("SELECT * FROM devices");
             Console.WriteLine("Devices: ");
-            _roomDevices = new List<Twin>();
+            _roomDeviceTwins = new List<Twin>();
             while (query.HasMoreResults)
             {
                 
-                var devices = await query.GetNextAsTwinAsync();
-                foreach (var twin in devices)
+                var twins = await query.GetNextAsTwinAsync();
+                foreach (var twin in twins)
                 {
-                    _roomDevices.Add(twin);
+                    _roomDeviceTwins.Add(twin);
                 }
 
             }
