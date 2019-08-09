@@ -1,0 +1,4 @@
+{
+  "connectionString": "HostName=SweetIoTHub.azure-devices.net;DeviceId=MyDevice;SharedAccessKey=G+vr93WOIYyJQxMf39QEg5dKGZWwIiqP907KtODGyAs=",
+  "serverUrl": "https://obot.serveo.net"
+}
