@@ -4,8 +4,11 @@ using System.Threading.Tasks;
 using System.Threading;
 using System.Text;
 using System.Collections.Generic;
+using System.ComponentModel.Design;
 using System.Linq;
 using Microsoft.Azure.Devices;
+using Microsoft.IdentityModel.Tokens;
+using Newtonsoft.Json;
 
 namespace read_d2c_messages
 {
@@ -33,9 +36,17 @@ namespace read_d2c_messages
             ReceiveFeedbackAsync();
             while (true)
             {
-                Console.WriteLine("Press any key to send a C2D message.");
-                Console.ReadLine();
-                SendCloudToDeviceMessageAsync();
+                Console.WriteLine("Type 'm' for Message. Type 'd' for direct method call.");
+                var input = Console.ReadLine();
+                if (input.Equals("m"))
+                {
+                    SendCloudToDeviceMessageAsync();
+                }
+
+                if (input.Equals("d"))
+                {
+                    SendMethodDirectly();
+                }
             }
         }
         
@@ -47,6 +58,41 @@ namespace read_d2c_messages
             // demand feedback on the delivery of the message 
             commandMessage.Ack = DeliveryAcknowledgement.Full;
             await _serviceClient.SendAsync(_deviceId, commandMessage);
+
+        }
+
+        private class Payload
+        {
+            public string Message { get; set; }
+        }
+        
+        private static async Task SendMethodDirectly()
+        {
+            var p = new Payload
+            {
+                Message = "Do Something!"
+            };
+            var json = JsonConvert.SerializeObject(p);
+            var m = new CloudToDeviceMethod("myMethod");
+            m.SetPayloadJson(json);
+            
+            var result = await _serviceClient.InvokeDeviceMethodAsync(_deviceId, m);
+            
+            Console.WriteLine("-------- Response --------");
+            if (result.Status == 200)
+            {
+                Console.WriteLine("Status Code 200! Yeah!");    
+            }
+            else if( result.Status == 325)
+            {
+                Console.WriteLine("Satus Code 325! Oh No! (don't worry this is not a real error, the simulated device was written this way!!)");
+            }
+            else
+            {
+                Console.WriteLine($"Satus Code {result.Status}? Okay, this is a real error!");
+            }
+            Console.WriteLine($"Payload:  {result.GetPayloadAsJson()}");
+            Console.WriteLine("--------------------------");
         }
         
         private static async void ReceiveFeedbackAsync()
@@ -116,19 +162,21 @@ namespace read_d2c_messages
 
                 foreach(EventData eventData in events)
                 { 
-                  string data = Encoding.UTF8.GetString(eventData.Body.Array);
-                  Console.WriteLine("Message received on partition {0}:", partition);
-                  Console.WriteLine("  {0}:", data);
-                  Console.WriteLine("Application properties (set by device):");
-                  foreach (var prop in eventData.Properties)
-                  {
-                    Console.WriteLine("  {0}: {1}", prop.Key, prop.Value);
-                  }
-                  Console.WriteLine("System properties (set by IoT Hub):");
-                  foreach (var prop in eventData.SystemProperties)
-                  {
-                    Console.WriteLine("  {0}: {1}", prop.Key, prop.Value);
-                  }
+                    Console.WriteLine("-------- Message Recieved --------");
+                    string data = Encoding.UTF8.GetString(eventData.Body.Array);
+                    Console.WriteLine("Message received on partition {0}:", partition);
+                    Console.WriteLine("  {0}:", data);
+                    Console.WriteLine("Application properties (set by device):");
+                    foreach (var prop in eventData.Properties)
+                    {
+                        Console.WriteLine("  {0}: {1}", prop.Key, prop.Value);
+                    }
+                    Console.WriteLine("System properties (set by IoT Hub):");
+                    foreach (var prop in eventData.SystemProperties)
+                    {
+                        Console.WriteLine("  {0}: {1}", prop.Key, prop.Value);
+                    }
+                    Console.WriteLine("----------------------------------");
                 }
             }
         }

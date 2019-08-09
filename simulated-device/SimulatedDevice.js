@@ -25,6 +25,7 @@ var Message = require('azure-iot-device').Message;
 var client = DeviceClient.fromConnectionString(connectionString, Mqtt);
 
 registerListener()
+registerMethodListener()
 setMessageInterval()
 
 // listen to incoming messages from the cloud
@@ -34,11 +35,31 @@ function registerListener(err) {
   } else {
     console.log('Client connected');
     client.on('message', function (msg) {
+      console.log("-------- Message recieved --------");
       console.log('Id: ' + msg.messageId + ' Body: ' + msg.data);
       client.complete(msg, console.log('completed'));
+      console.log("----------------------------------");
     });
   }
 }
+
+function registerMethodListener()
+{
+  client.onDeviceMethod('myMethod', (request, response) => {
+    console.log("-------- myMethod --------");
+    console.log('myMethod was called!')
+    console.log(request)
+    console.log("--------------------------");
+    const r = Math.random()
+    if(r > 0.5)
+    {
+      response.send(200, {Cool: "Awesome", Yeah: "Sweet"})
+    } else {
+      response.send(325, {OhNo: "WhaAAaat", Damn: "So sad!"})
+    }
+  })
+}
+
 
   // send a message to the cloud every 2 seconds
 function setMessageInterval(){
@@ -47,12 +68,12 @@ function setMessageInterval(){
     var humidity = 60 + (Math.random() * 20);
     var data = JSON.stringify({ deviceId: 'MyDevice', message: 'Hi Cloud, how are you?'});
     var message = new Message(data);
-    message.properties.add('temperatureAlert', (temperature > 30) ? 'true' : 'false');
+    message.properties.add('CustomProperty', 'true');
     console.log("Sending message: " + message.getData());
     client.sendEvent(message, function (err) {
       if (err) {
         console.error('send error: ' + err.toString());
       } else {}
     });
-  }, 2000);
+  }, 10000);
 }
