@@ -4,11 +4,8 @@ using System.Threading.Tasks;
 using System.Threading;
 using System.Text;
 using System.Collections.Generic;
-using System.ComponentModel.Design;
 using System.Linq;
 using Microsoft.Azure.Devices;
-using Microsoft.IdentityModel.Tokens;
-using System.Reflection.Metadata.Ecma335;
 using Microsoft.Azure.Devices.Shared;
 using Newtonsoft.Json;
 
